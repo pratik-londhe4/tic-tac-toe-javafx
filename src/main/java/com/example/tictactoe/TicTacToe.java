@@ -31,6 +31,9 @@ public class TicTacToe extends Application {
 
        //board
        GridPane gridPane = new GridPane();
+       gridPane.setHgap(10);
+       gridPane.setVgap(10);
+       gridPane.setAlignment(Pos.CENTER);
        for (int i = 0; i < 3; i++) {
            for (int j = 0; j < 3; j++) {
                Button button = new Button();
@@ -43,8 +46,7 @@ public class TicTacToe extends Application {
            }
 
        }
-       gridPane.setHgap(10);
-       gridPane.setVgap(10);
+
 
        root.setCenter(gridPane);
        //score
@@ -52,7 +54,7 @@ public class TicTacToe extends Application {
        playerOScoreLabel = new Label("Player O : 0");
        playerXScoreLabel = new Label("Player X : 0");
 
-       scoreBoard.setStyle("-fx-font-size: 10pt;-fx-font-weight: bold");
+       scoreBoard.setStyle("-fx-font-size: 10pt;-fx-font-weight: bold;-fx-alignment: center");
 
 
        scoreBoard.getChildren().addAll(playerXScoreLabel, playerOScoreLabel);
