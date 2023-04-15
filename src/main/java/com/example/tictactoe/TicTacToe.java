@@ -11,16 +11,22 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 
-import java.io.IOException;
+import java.io.*;
+import java.net.Socket;
+
 
 public class TicTacToe extends Application {
     Label playerXScoreLabel, playerOScoreLabel;
+    static final String gameServer = "192.168.1.13";
     private boolean playerXTurn = true;
     Button[][] buttons = new Button[3][3];
 
     int playerXScore = 0,playerOScore = 0;
    private  BorderPane createContent(){
        BorderPane root = new BorderPane();
+       root.setOnMouseMoved(mouseEvent -> {
+           syncState();
+       });
        root.setPadding(new Insets(20));
        //title
        Label title = new Label("Tic Tac Toe");
@@ -67,15 +73,81 @@ public class TicTacToe extends Application {
    void buttonClick(Button button){
        if(button.getText().equals("")){
            if(playerXTurn){
+               enableAllButtons();
                button.setText("X");
+               Thread t = new Thread(() -> {
+                   updateState();
+                   syncState();
+               });
+               t.start();
            }else{
-               button.setText("O");
+                disableAllButtons();
+                syncState();
            }
            playerXTurn = !playerXTurn;
            isWinner();
        }
 
        return;
+
+   }
+
+   void updateState(){
+       String[][] buttons = getCurrentState();
+       try {
+           Socket socket = new Socket(gameServer,2000);
+           InputStream responseInputStream = socket.getInputStream();
+           OutputStream requestOutputStream = socket.getOutputStream();
+
+           ObjectOutputStream req = new ObjectOutputStream(requestOutputStream);
+           Request request = new Request();
+           request.request = "update";
+           request.gameState = new GameState();
+           request.gameState.buttons = buttons;
+           request.gameState.playerXTurn = playerXTurn;
+           //
+
+           req.writeObject(request);
+           syncState();
+       } catch (IOException e) {
+           throw new RuntimeException(e);
+       }
+
+   }
+
+   void syncState(){
+       try {
+           Socket socket = new Socket(gameServer,2000);
+           InputStream responseInputStream = socket.getInputStream();
+           OutputStream requestOutputStream = socket.getOutputStream();
+
+           ObjectOutputStream objectOutputStream = new ObjectOutputStream(requestOutputStream);
+           ObjectInputStream objectInputStream = new ObjectInputStream(responseInputStream);
+
+           Request request = new Request();
+           request.gameState = null;
+           request.request = "sync";
+
+           objectOutputStream.writeObject(request);
+           GameState gameState = (GameState) objectInputStream.readObject();
+
+           for (int i = 0; i < 3; i++) {
+               for (int j = 0; j < 3; j++) {
+                   buttons[i][j].setText(gameState.buttons[i][j]);
+               }
+           }
+
+        playerXTurn = gameState.playerXTurn;
+           if (playerXTurn)enableAllButtons();
+
+           isWinner();
+
+
+
+       } catch (Exception e) {
+           throw new RuntimeException(e);
+       }
+
 
    }
 
@@ -90,6 +162,7 @@ public class TicTacToe extends Application {
                announceWinner(winner);
                updateScore(winner);
                resetBorad();
+               updateState();
            }
        }
 
@@ -104,6 +177,7 @@ public class TicTacToe extends Application {
                announceWinner(winner);
                updateScore(winner);
                resetBorad();
+               updateState();
            }
        }
        //diagonal
@@ -116,6 +190,7 @@ public class TicTacToe extends Application {
            announceWinner(winner);
            updateScore(winner);
            resetBorad();
+           updateState();
            return;
        }
        //
@@ -128,6 +203,7 @@ public class TicTacToe extends Application {
            announceWinner(winner);
            updateScore(winner);
            resetBorad();
+           updateState();
            return;
        }
 
@@ -144,9 +220,19 @@ public class TicTacToe extends Application {
        if(isTie){
            announceTie();
            resetBorad();
+           updateState();
        }
    }
 
+   String[][] getCurrentState(){
+       String[][] curr = new String[3][3];
+       for (int i = 0; i < 3; i++) {
+           for (int j = 0; j < 3; j++) {
+               curr[i][j] = buttons[i][j].getText();
+           }
+       }
+       return curr;
+   }
    private void announceWinner(String player){
        Alert alert = new Alert(Alert.AlertType.INFORMATION);
        alert.setTitle("Congratulations");
@@ -178,6 +264,22 @@ public class TicTacToe extends Application {
            }
        }
    }
+
+    void disableAllButtons(){
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                buttons[i][j].setDisable(true);
+            }
+        }
+    }
+
+    void enableAllButtons(){
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                buttons[i][j].setDisable(false);
+            }
+        }
+    }
     @Override
     public void start(Stage stage) throws IOException {
         Scene scene = new Scene(createContent());
